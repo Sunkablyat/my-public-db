@@ -184,7 +184,7 @@ export default function BasketballApp() {
 
   return (
     <main style={{
-      maxWidth: 1200, margin: '0 auto', padding: 12, fontFamily: 'sans-serif',
+      maxWidth: 1200, margin: '0 auto', padding: 0, fontFamily: 'sans-serif',
       backgroundColor: 'var(--bg)', color: 'var(--text)'
     }}>
       <style>{`
@@ -310,8 +310,8 @@ export default function BasketballApp() {
 
       {/* Scrollable Scoreboard */}
       <div style={{
-        marginTop: 20, background: 'var(--card)', borderTop: '2px solid var(--border)',
-        padding: 12, borderRadius: 8
+        marginTop: 0, background: 'var(--card)', borderTop: '0px solid var(--border)',
+        padding: 0, borderRadius: 0
       }}>
         <h3 style={{ textAlign: 'center', margin: 0 }}>Scoreboard {team3.length > 0 && `(Match ${matchIndex}/3)`}</h3>
 
