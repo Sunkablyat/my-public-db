@@ -332,8 +332,8 @@ export default function BasketballApp() {
             <div key={idx} style={{ flex: 1, background: '#000000ff', padding: 10, borderRadius: 6 }}>
               <h4 style={{ textAlign: 'center' , fontSize: 40 }}>{t.label} — {t.score}</h4>
               <div style={{ display: 'flex' }}>
-                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '80px 0', background: '#4caf50', color: 'white' }}>+1</button>
-                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '80px 0', background: '#f44336', color: 'white' }}>-1</button>
+                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '120px 0', background: '#4caf50', color: 'white' }}>+1</button>
+                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '120px 0', background: '#f44336', color: 'white' }}>-1</button>
               </div>
               <button style={{ marginTop: 6, width: '100%' }} onClick={() => declareWinner(idx + 1)}>Declare Winner</button>
             </div>
