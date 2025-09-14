@@ -285,12 +285,12 @@ export default function BasketballApp() {
       <section style={{ marginBottom: 30 }}>
         <h2>Team Randomizer</h2>
         <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-          <button onClick={() => setTeamCount(2)} style={{ flex: 1, background: teamCount === 2 ? '#2196f3' : '#ddd', color: teamCount === 2 ? 'white' : 'black' }}>2 Teams</button>
-          <button onClick={() => setTeamCount(3)} style={{ flex: 1, background: teamCount === 3 ? '#2196f3' : '#ddd', color: teamCount === 3 ? 'white' : 'black' }}>3 Teams</button>
+          <button onClick={() => setTeamCount(2)} style={{ flex: 1, minHeight: 50, background: teamCount === 2 ? '#2196f3' : '#ddd', color: teamCount === 2 ? 'white' : 'black' }}>2 Teams</button>
+          <button onClick={() => setTeamCount(3)} style={{ flex: 1, minHeight: 50, background: teamCount === 3 ? '#2196f3' : '#ddd', color: teamCount === 3 ? 'white' : 'black' }}>3 Teams</button>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={randomizeTeams} style={{ flex: 1 }}>Randomize</button>
-          <button onClick={clearTeams} style={{ flex: 1, background: '#f28b82', color: 'white' }}>Clear Teams</button>
+          <button onClick={clearTeams} style={{ flex: 1, minHeight: 30, background: '#f28b82', color: 'white' }}>Clear Teams</button>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
           {[{ label: 'Team 1', list: team1 }, { label: 'Team 2', list: team2 }, { label: 'Team 3', list: team3, hide: teamCount !== 3 }, { label: 'Subs', list: subs, sub: true }]
@@ -329,11 +329,11 @@ export default function BasketballApp() {
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           {[{ team: currentTeamA, score: score1, setScore: setScore1, label: 'Team 1' }, { team: currentTeamB, score: score2, setScore: setScore2, label: 'Team 2' }].map((t, idx) => (
-            <div key={idx} style={{ flex: 1, background: '#add8e6', padding: 10, borderRadius: 6 }}>
+            <div key={idx} style={{ flex: 1, background: '#050505ff', padding: 10, borderRadius: 6 }}>
               <h4 style={{ textAlign: 'center' }}>{t.label} — {t.score}</h4>
               <div style={{ display: 'flex' }}>
-                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '20px 0', background: '#4caf50', color: 'white' }}>+1</button>
-                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '20px 0', background: '#f44336', color: 'white' }}>-1</button>
+                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '50px 0', background: '#4caf50', color: 'white' }}>+1</button>
+                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '50px 0', background: '#f44336', color: 'white' }}>-1</button>
               </div>
               <button style={{ marginTop: 6, width: '100%' }} onClick={() => declareWinner(idx + 1)}>Declare Winner</button>
             </div>
