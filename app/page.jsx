@@ -316,7 +316,7 @@ export default function BasketballApp() {
         <h3 style={{ textAlign: 'center', margin: 0 }}>Scoreboard {team3.length > 0 && `(Match ${matchIndex}/3)`}</h3>
 
         <div style={{ textAlign: 'center', marginTop: 6 }}>
-          <div style={{ fontSize: 28, fontWeight: 'bold' }}>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</div>
+          <div style={{ fontSize: 38, fontWeight: 'bold' }}>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6 }}>
             <button onClick={startTimer} disabled={running}>Start</button>
             <button onClick={pauseTimer} disabled={!running}>Pause</button>
@@ -329,11 +329,11 @@ export default function BasketballApp() {
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           {[{ team: currentTeamA, score: score1, setScore: setScore1, label: 'Team 1' }, { team: currentTeamB, score: score2, setScore: setScore2, label: 'Team 2' }].map((t, idx) => (
-            <div key={idx} style={{ flex: 1, background: '#050505ff', padding: 10, borderRadius: 6 }}>
-              <h4 style={{ textAlign: 'center' }}>{t.label} — {t.score}</h4>
+            <div key={idx} style={{ flex: 1, background: '#000000ff', padding: 10, borderRadius: 6 }}>
+              <h4 style={{ textAlign: 'center' , fontSize: 40 }}>{t.label} — {t.score}</h4>
               <div style={{ display: 'flex' }}>
-                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '50px 0', background: '#4caf50', color: 'white' }}>+1</button>
-                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '50px 0', background: '#f44336', color: 'white' }}>-1</button>
+                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '80px 0', background: '#4caf50', color: 'white' }}>+1</button>
+                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '80px 0', background: '#f44336', color: 'white' }}>-1</button>
               </div>
               <button style={{ marginTop: 6, width: '100%' }} onClick={() => declareWinner(idx + 1)}>Declare Winner</button>
             </div>
