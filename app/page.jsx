@@ -330,7 +330,7 @@ export default function BasketballApp() {
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           {[{ team: currentTeamA, score: score1, setScore: setScore1, label: 'Team 1' }, { team: currentTeamB, score: score2, setScore: setScore2, label: 'Team 2' }].map((t, idx) => (
             <div key={idx} style={{ flex: 1, background: '#000000ff', padding: 10, borderRadius: 6 }}>
-              <h4 style={{ textAlign: 'center' , fontSize: 40 }}>{t.label} — {t.score}</h4>
+              <h4 style={{ textAlign: 'center' , fontSize: 25 }}>{t.team.length > 0 ? t.team.map(p => p.name).join(', ') : t.label} — {t.score}</h4>
               <div style={{ display: 'flex' }}>
                 <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '100px 0', background: '#4caf50', color: 'white' }}>+1</button>
                 <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '100px 0', background: '#f44336', color: 'white' }}>-1</button>
