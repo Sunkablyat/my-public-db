@@ -39,6 +39,9 @@ export default function BasketballApp() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [editing, setEditing] = useState({ id: null, field: null, value: '' });
 
+  // NEW: toggle whether we create a sub when odd number of players (2-team mode)
+  const [allowSub, setAllowSub] = useState(true);
+
   useEffect(() => { loadPlayers(); }, []);
 
   async function loadPlayers() {
@@ -115,11 +118,19 @@ export default function BasketballApp() {
 
     if (teamCount === 2) {
       let s = [];
-      if (shuffled.length % 2 !== 0) s = [shuffled.pop()];
+      // if odd number of players in 2-team mode
+      if (shuffled.length % 2 !== 0) {
+        if (allowSub) {
+          // make one Sub
+          s = [shuffled.pop()];
+        }
+        // else: keep all players in the pool -> one team will just have one extra
+      }
       const mid = Math.ceil(shuffled.length / 2);
       setTeam1(shuffled.slice(0, mid));
       setTeam2(shuffled.slice(mid));
-      setTeam3([]); setSubs(s);
+      setTeam3([]); 
+      setSubs(s);
     } else {
       const t1 = [], t2 = [], t3 = [];
       shuffled.forEach((p, i) => {
@@ -287,6 +298,22 @@ export default function BasketballApp() {
         <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
           <button onClick={() => setTeamCount(2)} style={{ flex: 1, minHeight: 50, background: teamCount === 2 ? '#2196f3' : '#ddd', color: teamCount === 2 ? 'white' : 'black' }}>2 Teams</button>
           <button onClick={() => setTeamCount(3)} style={{ flex: 1, minHeight: 50, background: teamCount === 3 ? '#2196f3' : '#ddd', color: teamCount === 3 ? 'white' : 'black' }}>3 Teams</button>
+          {/* NEW toggle for Sub behavior */}
+          <button
+            onClick={() => setAllowSub(v => !v)}
+            style={{
+              minWidth: 140,
+              minHeight: 50,
+              borderRadius: 8,
+              padding: '0 12px',
+              background: allowSub ? '#4caf50' : '#9e9e9e',
+              color: 'white',
+              fontWeight: 'bold'
+            }}
+            title="When odd number of players"
+          >
+            Sub when odd: {allowSub ? 'ON' : 'OFF'}
+          </button>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={randomizeTeams} style={{ flex: 1 }}>Randomize</button>
