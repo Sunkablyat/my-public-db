@@ -357,11 +357,45 @@ export default function BasketballApp() {
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           {[{ team: currentTeamA, score: score1, setScore: setScore1, label: 'Team 1' }, { team: currentTeamB, score: score2, setScore: setScore2, label: 'Team 2' }].map((t, idx) => (
             <div key={idx} style={{ flex: 1, background: '#000000ff', padding: 10, borderRadius: 6 }}>
-              <h4 style={{ textAlign: 'center' , fontSize: 20 }}>{t.team.length > 0 ? t.team.map(p => p.name).join(', ') : t.label} — {t.score}</h4>
+              <h4 style={{ textAlign: 'center' , fontSize: 20 }}>
+                {t.team.length > 0 ? t.team.map(p => p.name).join(', ') : t.label} — {t.score}
+              </h4>
+
+              {/* NEW LAYOUT: left = big score, right = column with +1 (top) and -1 (bottom) */}
               <div style={{ display: 'flex' }}>
-                <button onClick={() => t.setScore(t.score + 1)} style={{ flex: 1, padding: '100px 0', background: '#4caf50', color: 'white' }}>+1</button>
-                <button onClick={() => t.setScore(Math.max(0, t.score - 1))} style={{ flex: 1, padding: '100px 0', background: '#f44336', color: 'white' }}>-1</button>
+                {/* Big score display (left half) */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px 0',
+                    fontSize: 250,
+                    fontWeight: 'bold',
+                    color: 'white'
+                  }}
+                >
+                  {t.score}
+                </div>
+
+                {/* Right half split vertically for +1 / -1 */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <button
+                    onClick={() => t.setScore(t.score + 1)}
+                    style={{ flex: 1, padding: '50px 0', background: '#4caf50', color: 'white', fontSize: 22 }}
+                  >
+                    +1
+                  </button>
+                  <button
+                    onClick={() => t.setScore(Math.max(0, t.score - 1))}
+                    style={{ flex: 1, padding: '50px 0', background: '#f44336', color: 'white', fontSize: 22 }}
+                  >
+                    -1
+                  </button>
+                </div>
               </div>
+
               <button style={{ marginTop: 6, width: '100%' }} onClick={() => declareWinner(idx + 1)}>Declare Winner</button>
             </div>
           ))}
