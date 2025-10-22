@@ -42,6 +42,13 @@ export default function BasketballApp() {
   // NEW: toggle whether we create a sub when odd number of players (2-team mode)
   const [allowSub, setAllowSub] = useState(true);
 
+  // NEW: weighted (weighstone) toggle and big counter toggle
+  const [weightedMode, setWeightedMode] = useState(false);
+  const [bigCounterMode, setBigCounterMode] = useState(false);
+
+  // NEW: max difference for weighstones (default 0 per your request)
+  const [maxDiff, setMaxDiff] = useState(0);
+
   useEffect(() => { loadPlayers(); }, []);
 
   async function loadPlayers() {
@@ -112,36 +119,237 @@ export default function BasketballApp() {
     loadPlayers();
   }
 
+  // -------------------------
+  // Modified randomizeTeams()
+  // -------------------------
   function randomizeTeams() {
+    // pool = players who are present (selected)
     const present = players.filter(p => p.is_present);
-    const shuffled = shuffle(present);
-
-    if (teamCount === 2) {
-      let s = [];
-      // if odd number of players in 2-team mode
-      if (shuffled.length % 2 !== 0) {
-        if (allowSub) {
-          // make one Sub
-          s = [shuffled.pop()];
-        }
-        // else: keep all players in the pool -> one team will just have one extra
-      }
-      const mid = Math.ceil(shuffled.length / 2);
-      setTeam1(shuffled.slice(0, mid));
-      setTeam2(shuffled.slice(mid));
-      setTeam3([]); 
-      setSubs(s);
-    } else {
-      const t1 = [], t2 = [], t3 = [];
-      shuffled.forEach((p, i) => {
-        if (i % 3 === 0) t1.push(p);
-        else if (i % 3 === 1) t2.push(p);
-        else t3.push(p);
-      });
-      setTeam1(t1); setTeam2(t2); setTeam3(t3); setSubs([]);
+    if (!present.length) {
+      // nothing selected
+      setTeam1([]); setTeam2([]); setTeam3([]); setSubs([]);
+      return;
     }
+
+    // If weighted mode ON, compute weights 1..X for selected players
+    // Ties in winrate get same weight (equal rank).
+    // Highest gets X, next gets X-1, etc.
+    const selectedCount = present.length;
+    const weights = new Map();
+
+    if (weightedMode) {
+      // compute winrate safely (wins/games), treat games==0 as 0 winrate
+      const withRates = present.map(p => {
+        const rate = p.games ? (p.wins || 0) / p.games : 0;
+        return { ...p, rate };
+      });
+      // sort descending by rate
+      withRates.sort((a, b) => b.rate - a.rate);
+
+      // assign rank groups: same rate => same rank
+      let currentRank = 1;
+      let lastRate = null;
+      for (let i = 0; i < withRates.length; i++) {
+        const p = withRates[i];
+        if (lastRate === null) {
+          // first
+        } else {
+          if (p.rate < lastRate) {
+            currentRank = i + 1;
+          } else {
+            // same rate => same rank (currentRank unchanged)
+          }
+        }
+        lastRate = p.rate;
+        // weight is: selectedCount - (rank - 1) so top rank gets selectedCount
+        const w = selectedCount - (currentRank - 1);
+        weights.set(p.id, w);
+      }
+      // For safety, ensure every present player has a weight
+      for (const p of present) {
+        if (!weights.has(p.id)) weights.set(p.id, 1);
+      }
+    } else {
+      // not weighted: everyone weight 1
+      for (const p of present) weights.set(p.id, 1);
+    }
+
+    // Now do team assignment
+    // Special handling for 2-team mode with bigCounter and weight balancing
+    if (teamCount === 2) {
+      // Constants and helpers
+      const BIG_NAMES = ['Lan', 'Alex', 'Sitar', 'Lukas'];
+
+      // start shuffled pool to avoid stable ordering
+      const pool = shuffle(present.slice());
+
+      // If bigCounterMode is ON, separate big players and normal players.
+      // If bigCounterMode is OFF, treat all players as normals (i.e., no special handling).
+      let bigPlayers = [];
+      let normalPlayers = pool;
+      if (bigCounterMode) {
+        bigPlayers = pool.filter(p => BIG_NAMES.includes(p.name));
+        normalPlayers = pool.filter(p => !BIG_NAMES.includes(p.name));
+      } else {
+        bigPlayers = [];
+        normalPlayers = pool.slice(); // everything is normal
+      }
+
+      // We'll construct two teams trying to:
+      // 1) balance big counts if bigCounterMode ON (difference ≤ 1)
+      // 2) balance total weights (difference ≤ maxDiff)
+      // 3) keep team sizes balanced (1 player difference max, or sub if allowSub)
+
+      // Start with empty teams
+      let t1 = [];
+      let t2 = [];
+
+      // If bigCounterMode, assign bigs first to enforce ≤1 difference
+      if (bigCounterMode && bigPlayers.length > 0) {
+        const shuffledBigs = shuffle(bigPlayers.slice());
+        // Start by placing alternating so it's random but balanced
+        for (let i = 0; i < shuffledBigs.length; i++) {
+          if (i % 2 === 0) t1.push(shuffledBigs[i]);
+          else t2.push(shuffledBigs[i]);
+        }
+        // After this initial distribution, if counts differ by more than 1, adjust (unlikely)
+        while (Math.abs(t1.filter(x => BIG_NAMES.includes(x.name)).length - t2.filter(x => BIG_NAMES.includes(x.name)).length) > 1) {
+          if (t1.filter(x => BIG_NAMES.includes(x.name)).length > t2.filter(x => BIG_NAMES.includes(x.name)).length) {
+            const moveIdx = t1.findIndex(x => BIG_NAMES.includes(x.name));
+            if (moveIdx >= 0) t2.push(...t1.splice(moveIdx, 1));
+            else break;
+          } else {
+            const moveIdx = t2.findIndex(x => BIG_NAMES.includes(x.name));
+            if (moveIdx >= 0) t1.push(...t2.splice(moveIdx, 1));
+            else break;
+          }
+        }
+      }
+
+      // Now assign normal players trying to balance weights and sizes
+      // Compute current team weights
+      const teamWeight = (arr) => arr.reduce((acc, p) => acc + (weights.get(p.id) || 1), 0);
+      let w1 = teamWeight(t1);
+      let w2 = teamWeight(t2);
+
+      // Desired team sizes (before subs)
+      const desiredSizeA = Math.ceil(pool.length / 2);
+      const desiredSizeB = Math.floor(pool.length / 2);
+
+      // shuffle normalPlayers for randomness, then sort by weight descending to place heavier ones first (helps balancing)
+      let normals = shuffle(normalPlayers.slice());
+      normals.sort((a, b) => (weights.get(b.id) || 1) - (weights.get(a.id) || 1));
+
+      for (const p of normals) {
+        // if one team already filled to desired size, push to other
+        if (t1.length >= desiredSizeA && t2.length < desiredSizeB) {
+          t2.push(p);
+          w2 += (weights.get(p.id) || 1);
+          continue;
+        }
+        if (t2.length >= desiredSizeA && t1.length < desiredSizeB) {
+          t1.push(p);
+          w1 += (weights.get(p.id) || 1);
+          continue;
+        }
+
+        // Choose the team which currently has lower weight OR smaller size if weights equal
+        if ((w1 + 0) <= (w2 + 0)) {
+          t1.push(p);
+          w1 += (weights.get(p.id) || 1);
+        } else {
+          t2.push(p);
+          w2 += (weights.get(p.id) || 1);
+        }
+      }
+
+      // After assignment, check weight difference and try to swap to reduce if > maxDiff
+      let diff = Math.abs(w1 - w2);
+      // Use the UI-controlled maxDiff state (default 0)
+      const maxAllowed = Number.isFinite(maxDiff) ? Math.max(0, Math.floor(maxDiff)) : 0;
+
+      if (diff > maxAllowed) {
+        // attempt a limited number of swaps to reduce difference
+        // build arrays of candidates sorted by weight
+        let attempts = 0;
+        while (diff > maxAllowed && attempts < 300) {
+          attempts++;
+          // attempt to find a pair (a from heavier team, b from lighter team) to swap that improves diff
+          let improved = false;
+          if (w1 > w2) {
+            // heavier team = t1
+            // try all pairs (a in t1, b in t2) and pick one that reduces diff
+            outer1:
+            for (let i = 0; i < t1.length; i++) {
+              for (let j = 0; j < t2.length; j++) {
+                const a = t1[i], b = t2[j];
+                const newW1 = w1 - (weights.get(a.id) || 1) + (weights.get(b.id) || 1);
+                const newW2 = w2 - (weights.get(b.id) || 1) + (weights.get(a.id) || 1);
+                if (Math.abs(newW1 - newW2) < diff) {
+                  // perform swap
+                  t1.splice(i, 1, b);
+                  t2.splice(j, 1, a);
+                  w1 = newW1; w2 = newW2; diff = Math.abs(w1 - w2);
+                  improved = true;
+                  break outer1;
+                }
+              }
+            }
+          } else {
+            // heavier team = t2
+            outer2:
+            for (let i = 0; i < t2.length; i++) {
+              for (let j = 0; j < t1.length; j++) {
+                const a = t2[i], b = t1[j];
+                const newW2 = w2 - (weights.get(a.id) || 1) + (weights.get(b.id) || 1);
+                const newW1 = w1 - (weights.get(b.id) || 1) + (weights.get(a.id) || 1);
+                if (Math.abs(newW1 - newW2) < diff) {
+                  // perform swap
+                  t2.splice(i, 1, b);
+                  t1.splice(j, 1, a);
+                  w1 = newW1; w2 = newW2; diff = Math.abs(w1 - w2);
+                  improved = true;
+                  break outer2;
+                }
+              }
+            }
+          }
+          if (!improved) break;
+        }
+      }
+
+      // Finally, if total players odd and allowSub true, pop one from the larger team to subs
+      let s = [];
+      const total = t1.length + t2.length;
+      if (total % 2 !== 0 && allowSub) {
+        if (t1.length > t2.length) s = [t1.pop()];
+        else s = [t2.pop()];
+      }
+
+      setTeam1(t1);
+      setTeam2(t2);
+      setTeam3([]);
+      setSubs(s);
+      setScore1(0);
+      setScore2(0);
+      setMatchIndex(1);
+      return;
+    }
+
+    // 3 teams unchanged:
+    const shuffled = shuffle(present.slice());
+    const t1 = [], t2 = [], t3 = [];
+    shuffled.forEach((p, i) => {
+      if (i % 3 === 0) t1.push(p);
+      else if (i % 3 === 1) t2.push(p);
+      else t3.push(p);
+    });
+    setTeam1(t1); setTeam2(t2); setTeam3(t3); setSubs([]);
     setScore1(0); setScore2(0); setMatchIndex(1);
   }
+  // -------------------------
+  // end randomizeTeams()
+  // -------------------------
 
   function clearTeams() {
     setTeam1([]); setTeam2([]); setTeam3([]); setSubs([]);
@@ -219,15 +427,23 @@ export default function BasketballApp() {
         </form>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
           {players.map(p => (
-            <div key={p.id} onClick={() => togglePresence(p.id, p.is_present)}
+            <div
+              key={p.id}
+              onClick={() => togglePresence(p.id, p.is_present)}
               style={{
                 background: p.is_present ? '#0077ffff' : 'var(--card)',
-                color: 'white', padding: '8px 12px', borderRadius: 6,
+                color: p.is_present ? 'black' : 'white',
+                padding: '8px 12px', borderRadius: 6,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'
-              }}>
+              }}
+            >
               <span>{p.name}</span>
-              <button onClick={e => { e.stopPropagation(); removePlayer(p.id); }}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#d11a2a' }}>❌</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); removePlayer(p.id); }}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#d11a2a' }}
+              >
+                ❌
+              </button>
             </div>
           ))}
         </div>
@@ -246,8 +462,11 @@ export default function BasketballApp() {
                 { key: 'games', label: 'GAMES' },
                 { key: 'winrate', label: 'WINRATE' }
               ].map(col => (
-                <th key={col.key} onClick={() => toggleSort(col.key)}
-                  style={{ cursor: 'pointer', padding: 6, textAlign: col.key === 'name' ? 'left' : 'center' }}>
+                <th
+                  key={col.key}
+                  onClick={() => toggleSort(col.key)}
+                  style={{ cursor: 'pointer', padding: 6, textAlign: col.key === 'name' ? 'left' : 'center' }}
+                >
                   {col.label} {sortColumn === col.key ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                 </th>
               ))}
@@ -260,8 +479,10 @@ export default function BasketballApp() {
               return (
                 <tr key={p.id}>
                   <td>{p.name}</td>
-                  <td onClick={() => setEditing({ id: p.id, field: 'wins', value: String(w) })}
-                    style={{ textAlign: 'center', cursor: 'pointer' }}>
+                  <td
+                    onClick={() => setEditing({ id: p.id, field: 'wins', value: String(w) })}
+                    style={{ textAlign: 'center', cursor: 'pointer' }}
+                  >
                     {editing.id === p.id && editing.field === 'wins' ? (
                       <input autoFocus value={editing.value}
                         onChange={e => setEditing({ ...editing, value: e.target.value })}
@@ -271,8 +492,10 @@ export default function BasketballApp() {
                     ) : w}
                   </td>
                   <td style={{ textAlign: 'center' }}>{l}</td>
-                  <td onClick={() => setEditing({ id: p.id, field: 'games', value: String(g) })}
-                    style={{ textAlign: 'center', cursor: 'pointer' }}>
+                  <td
+                    onClick={() => setEditing({ id: p.id, field: 'games', value: String(g) })}
+                    style={{ textAlign: 'center', cursor: 'pointer' }}
+                  >
                     {editing.id === p.id && editing.field === 'games' ? (
                       <input autoFocus value={editing.value}
                         onChange={e => setEditing({ ...editing, value: e.target.value })}
@@ -298,7 +521,71 @@ export default function BasketballApp() {
         <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
           <button onClick={() => setTeamCount(2)} style={{ flex: 1, minHeight: 50, background: teamCount === 2 ? '#2196f3' : '#ddd', color: teamCount === 2 ? 'white' : 'black' }}>2 Teams</button>
           <button onClick={() => setTeamCount(3)} style={{ flex: 1, minHeight: 50, background: teamCount === 3 ? '#2196f3' : '#ddd', color: teamCount === 3 ? 'white' : 'black' }}>3 Teams</button>
-          {/* NEW toggle for Sub behavior */}
+
+          {/* Randomize & Clear stay right after team selection per your requested order */}
+          <button onClick={randomizeTeams} style={{ minWidth: 120, minHeight: 50 }}>Randomize</button>
+          <button onClick={clearTeams} style={{ minWidth: 120, minHeight: 50, background: '#f28b82', color: 'white' }}>Clear Teams</button>
+
+          {/* Weighstone (weighted) toggle button (added) */}
+          <button
+            onClick={() => setWeightedMode(v => !v)}
+            style={{
+              minWidth: 140,
+              minHeight: 50,
+              borderRadius: 8,
+              padding: '0 12px',
+              background: weightedMode ? '#4caf50' : '#9e9e9e',
+              color: 'white',
+              fontWeight: 'bold'
+            }}
+            title="Use winrate-based weights when randomizing (Weighstone)"
+          >
+            Weighstone: {weightedMode ? 'ON' : 'OFF'}
+          </button>
+
+          {/* NEW: small numeric input next to Weighstone to control max diff (default 0) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="number"
+              min="0"
+              max="20"
+              value={maxDiff}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setMaxDiff(Number.isNaN(v) ? 0 : v);
+              }}
+              style={{
+                width: 64,
+                height: 40,
+                textAlign: 'center',
+                borderRadius: 6,
+                border: '1px solid #bbb',
+                fontWeight: 'bold',
+                appearance: 'textfield',
+                MozAppearance: 'textfield'
+              }}
+              title="Max weighstone difference (only when Weighstone is ON). Default 0."
+            />
+          </div>
+
+          {/* Big counter toggle button (added) */}
+          <button
+            onClick={() => setBigCounterMode(v => !v)}
+            style={{
+              minWidth: 140,
+              minHeight: 50,
+              borderRadius: 8,
+              padding: '0 12px',
+              background: bigCounterMode ? '#4caf50' : '#9e9e9e',
+              color: 'white',
+              fontWeight: 'bold'
+            }}
+            title="Balance big players (Lan/Alex/Sitar/Lukas) between teams"
+          >
+            Big Counter: {bigCounterMode ? 'ON' : 'OFF'}
+          </button>
+
+          {/* Sub toggle (kept where it was) */}
           <button
             onClick={() => setAllowSub(v => !v)}
             style={{
@@ -315,21 +602,35 @@ export default function BasketballApp() {
             Sub when odd: {allowSub ? 'ON' : 'OFF'}
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={randomizeTeams} style={{ flex: 1 }}>Randomize</button>
-          <button onClick={clearTeams} style={{ flex: 1, minHeight: 30, background: '#f28b82', color: 'white' }}>Clear Teams</button>
-        </div>
+
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
           {[{ label: 'Team 1', list: team1 }, { label: 'Team 2', list: team2 }, { label: 'Team 3', list: team3, hide: teamCount !== 3 }, { label: 'Subs', list: subs, sub: true }]
             .map((t, i) => !t.hide && t.list.length > 0 && (
               <div key={i} style={{ flex: 1, minWidth: 220, background: t.sub ? '#fff3cd' : '#add8e6', color: 'black', padding: 10, borderRadius: 8 }}>
                 <h3>{t.label}</h3>
                 {t.list.map(p => (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    {p.name}
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>
+                      <button
+                        onClick={() => {
+                          if (teamCount !== 2) return; // only in 2-team mode
+                          if (team1.find(x => x.id === p.id)) {
+                            setTeam1(prev => prev.filter(x => x.id !== p.id));
+                            setTeam2(prev => [...prev, p]);
+                          } else if (team2.find(x => x.id === p.id)) {
+                            setTeam2(prev => prev.filter(x => x.id !== p.id));
+                            setTeam1(prev => [...prev, p]);
+                          }
+                        }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginRight: 6 }}
+                        title="Swap to other team"
+                      >🔄</button>
+                      {p.name}
+                    </span>
                     <button onClick={() => removePlayerFromTeams(p.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>❌</button>
                   </div>
                 ))}
+
               </div>
             ))}
         </div>
@@ -361,25 +662,22 @@ export default function BasketballApp() {
                 {t.team.length > 0 ? t.team.map(p => p.name).join(', ') : t.label} — {t.score}
               </h4>
 
-              {/* NEW LAYOUT: left = big score, right = column with +1 (top) and -1 (bottom) */}
+              {/* Left = big score, Right = +1/-1 stacked */}
               <div style={{ display: 'flex' }}>
-                {/* Big score display (left half) */}
                 <div
                   style={{
                     flex: 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '20px 0',
-                    fontSize: 250,
+                    padding: '100px 0',
+                    fontSize: 64,
                     fontWeight: 'bold',
                     color: 'white'
                   }}
                 >
                   {t.score}
                 </div>
-
-                {/* Right half split vertically for +1 / -1 */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <button
                     onClick={() => t.setScore(t.score + 1)}
